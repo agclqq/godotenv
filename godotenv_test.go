@@ -188,7 +188,7 @@ func TestLoadQuotedEnv(t *testing.T) {
 		"OPTION_F": "2",
 		"OPTION_G": "",
 		"OPTION_H": "\n",
-		"OPTION_I": "echo 'asd'",
+		"OPTION_I": "echo 'asd' #cc",
 	}
 
 	loadEnvAndCompareValues(t, Load, envFileName, expectedValues, noopPresets)

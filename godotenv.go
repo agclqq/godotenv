@@ -28,7 +28,7 @@ import (
 
 const doubleQuoteSpecialChars = "\\\n\r\"!$`"
 
-var envMap = make(map[string]string)
+var envMaps map[string]string
 
 // Load will read your env file(s) and load them into ENV for this process.
 //
@@ -41,16 +41,17 @@ var envMap = make(map[string]string)
 //		godotenv.Load("fileone", "filetwo")
 //
 // It's important to note that it WILL NOT OVERRIDE an env variable that already exists - consider the .env file to set dev vars or sensible defaults
-func Load(filenames ...string) (err error) {
+
+func Load(filenames ...string) error {
 	filenames = filenamesOrDefault(filenames)
 
 	for _, filename := range filenames {
-		err = loadFile(filename, false)
+		err := loadFile(filename, false)
 		if err != nil {
-			return // return early on a spazout
+			return err
 		}
 	}
-	return
+	return nil
 }
 
 // Overload will read your env file(s) and load them into ENV for this process.
@@ -64,29 +65,28 @@ func Load(filenames ...string) (err error) {
 //		godotenv.Overload("fileone", "filetwo")
 //
 // It's important to note this WILL OVERRIDE an env variable that already exists - consider the .env file to forcefilly set all vars.
-func Overload(filenames ...string) (err error) {
+func Overload(filenames ...string) error {
 	filenames = filenamesOrDefault(filenames)
 
 	for _, filename := range filenames {
-		err = loadFile(filename, true)
+		err := loadFile(filename, true)
 		if err != nil {
-			return // return early on a spazout
+			return err
 		}
 	}
-	return
+	return nil
 }
 
 // Read all env (with same file loading semantics as Load) but return values as
 // a map rather than automatically writing values into env
-func Read(filenames ...string) (envMap map[string]string, err error) {
+func Read(filenames ...string) (map[string]string, error) {
 	filenames = filenamesOrDefault(filenames)
-
+	envMap := make(map[string]string)
 	for _, filename := range filenames {
 		individualEnvMap, individualErr := readFile(filename)
 
 		if individualErr != nil {
-			err = individualErr
-			return // return early on a spazout
+			return nil, individualErr
 		}
 
 		for key, value := range individualEnvMap {
@@ -94,37 +94,41 @@ func Read(filenames ...string) (envMap map[string]string, err error) {
 		}
 	}
 
-	return
+	if envMaps == nil {
+		envMaps = make(map[string]string)
+	}
+	envMaps = envMap
+	return envMap, nil
 }
 
 // Parse reads an env file from io.Reader, returning a map of keys and values.
-func Parse(r io.Reader) (envMap map[string]string, err error) {
+
+func Parse(r io.Reader) (map[string]string, error) {
 	var lines []string
 	scanner := bufio.NewScanner(r)
 	for scanner.Scan() {
 		lines = append(lines, scanner.Text())
 	}
 
-	if err = scanner.Err(); err != nil {
-		return
+	if err := scanner.Err(); err != nil {
+		return nil, err
 	}
-
+	envMap := make(map[string]string)
 	for _, fullLine := range lines {
 		if !isIgnoredLine(fullLine) {
-			var key, value string
-			key, value, err = parseLine(fullLine, envMap)
+			key, value, err := parseLine(fullLine, envMap)
 
 			if err != nil {
-				return
+				return nil, err
 			}
 			envMap[key] = value
 		}
 	}
-	return
+	return envMap, nil
 }
 
 //Unmarshal reads an env file from a string, returning a map of keys and values.
-func Unmarshal(str string) (envMap map[string]string, err error) {
+func Unmarshal(str string) (map[string]string, error) {
 	return Parse(strings.NewReader(str))
 }
 
@@ -208,10 +212,10 @@ func loadFile(filename string, overload bool) error {
 	return nil
 }
 
-func readFile(filename string) (envMap map[string]string, err error) {
+func readFile(filename string) (map[string]string, error) {
 	file, err := os.Open(filename)
 	if err != nil {
-		return
+		return nil, err
 	}
 	defer file.Close()
 
@@ -362,8 +366,8 @@ func doubleQuoteEscape(line string) string {
 }
 
 func GetEnv(key string) string {
-	return envMap[key]
+	return envMaps[key]
 }
 func GetEnvs() map[string]string {
-	return envMap
+	return envMaps
 }
